@@ -36,14 +36,15 @@ import re
 import statistics
 import sys
 
-WORD_RE = re.compile(r"[A-Za-z0-9$%'’-]+")
+WORD_RE = re.compile(r"[A-Za-zÀ-ÿ0-9$%'’-]+")
 NUMBER_RE = re.compile(
     r"\$\s?\d[\d,]*(?:\.\d+)?"                       # money, whole
     r"|\b\d[\d,]*(?:\.\d+)?\s?"                      # a figure, with or
     r"(?:%|k\b|x\b|hrs?\b|hours?\b|mins?\b|minutes?\b"  # without a unit
-    r"|days?\b|weeks?\b|months?\b|years?\b)?",
+    r"|days?\b|weeks?\b|months?\b|years?\b"
+    r"|mil\b|mi\b|dias?\b|semanas?\b|meses\b|mês\b|anos?\b|horas?\b|minutos?\b)?",
     re.IGNORECASE)
-PROPER_RE = re.compile(r"(?<!^)\b[A-Z][a-z]{2,}\b")
+PROPER_RE = re.compile(r"(?<!^)\b[A-ZÀ-Ý][a-zà-ÿ]{2,}\b")
 HASHTAG_RE = re.compile(r"(?:^|\s)#\w+")
 EMOJI_RE = re.compile(r"[\U0001F300-\U0001FAFF☀-➿]")
 
@@ -109,13 +110,64 @@ DEALBREAKERS = [
 ]
 
 
+# Português. Mesma lógica das listas em inglês acima; os dois idiomas valem
+# ao mesmo tempo, então um gancho misturado ("game changer") também é lido.
+SPOKEN_NUMBERS |= {
+    "zero", "dois", "duas", "três", "tres", "quatro", "cinco", "seis", "sete",
+    "oito", "nove", "dez", "onze", "doze", "quinze", "vinte", "trinta",
+    "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa",
+    "cem", "cento", "mil", "milhão", "milhões", "bilhão", "dúzia", "metade",
+    "dobro", "triplo",
+}
+MONEY_WORDS |= {
+    "reais", "real", "conto", "contos", "pila", "pilas", "mil", "porcento",
+    "milionário", "faturamento", "faturei", "lucro", "salário", "aluguel",
+}
+STAKES |= {
+    "pare", "nunca", "errado", "errada", "erro", "erros", "perdi",
+    "perder", "perdendo", "custou", "custa", "quebrei", "quebrado", "falhei",
+    "fracasso", "ninguém", "ninguem", "não", "nao", "nem", "parei", "larguei",
+    "demitido", "demitida", "apaguei", "apagar", "matou", "mata", "substituiu",
+    "cortei", "grátis", "gratis", "paguei", "cobrei", "contratei", "economizei",
+    "primeiro", "proibido", "ilegal", "pior", "odeio", "odiava", "desperdicei",
+    "golpe", "mentira", "menti", "verdade", "segredo", "escondido", "roubei",
+    "roubado", "antes", "até", "em vez", "mas", "exceto", "problema", "risco",
+    "perigo", "cuidado", "arrependo", "arrependimento", "deveria", "ainda",
+    "já", "só", "sem", "contra", "realmente", "flopou", "flopar",
+}
+WEAK_OPENERS += [
+    "então", "entao", "tipo", "oi", "olá", "ola", "fala", "e aí", "e ai",
+    "galera", "gente", "pessoal", "bom dia", "boa tarde", "boa noite",
+    "hoje", "basicamente", "sinceramente", "olha", "escuta", "é", "bom",
+    "eu queria", "eu quero", "eu vou", "vou", "um dos", "uma das",
+    "você já", "vc já", "você sabia", "vc sabia", "neste", "nesse",
+    "no vídeo", "a coisa", "muita gente", "existe", "isso é", "é muito",
+    "quando se", "como um", "como uma", "se você já", "sabe",
+]
+IMPERATIVES |= {
+    "pare", "rouba", "roube", "copia", "copie", "apaga", "apague",
+    "testa", "teste", "olha", "olhe", "assiste", "lê", "leia", "salva",
+    "salve", "usa", "use", "monta", "faz", "faça", "escreve", "escreva",
+    "manda", "mande", "começa", "comece", "larga", "nunca", "sempre", "não",
+    "coloca", "coloque", "confere", "confira",
+}
+DEALBREAKERS += [
+    (re.compile(r"(?i)^\s*(?:para de rolar|pare de rolar|não passa|nao passa|espera,? não passa)"),
+     "Abre com \"para de rolar\". Pedir atenção prova que você não conquistou."),
+    (re.compile(r"(?i)\b(?:n(?:e|est)sse (?:vídeo|reels?)|no (?:vídeo|reels?) de hoje|(?:eu )?vou te mostrar|vou te ensinar)\b"),
+     "Introdução de vídeo. Apague e abra na recompensa."),
+    (re.compile(r"(?i)^\s*(?:oi|olá|ola|fala,? galera|e a[ií],? (?:galera|gente|pessoal)|bom dia|boa tarde|boa noite|seja(?:m)? bem-vind[oa]s?)\b"),
+     "Cumprimento. Ninguém foi ao feed para ser cumprimentado."),
+]
+
+
 def clamp(n):
     return max(0.0, min(100.0, n))
 
 
 def words(text):
     # "$18,000" is one word when it is spoken, so it is one word here too.
-    return WORD_RE.findall(re.sub(r"(?<=\d),(?=\d)", "", text))
+    return WORD_RE.findall(re.sub(r"(?<=\d)[,.](?=\d{3})", "", text))
 
 
 def check_length(text):
@@ -201,11 +253,11 @@ def check_address(text):
     """Aimed at one viewer, or floating in the air."""
     low = text.lower()
     w = [x.lower().strip("'’") for x in words(text)]
-    if re.search(r"\b(you|your|you're|youre|yourself)\b", low):
+    if re.search(r"\b(you|your|you're|youre|yourself|você|voce|vc|vocês|te|teu|tua|seu|sua|seus|suas)\b", low):
         return 100.0, "speaks to the viewer"
     if w and w[0] in IMPERATIVES:
         return 90.0, f"imperative opener (\"{w[0]}\")"
-    if re.search(r"\b(i|my|me|we|our)\b", low):
+    if re.search(r"\b(i|my|me|we|our|eu|meu|minha|meus|minhas|nós|nosso|nossa|a gente)\b", low):
         return 70.0, "first person, no viewer named"
     return 35.0, "third person, nobody in the room"
 

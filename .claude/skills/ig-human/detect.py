@@ -33,11 +33,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LEX = os.path.join(HERE, "slop.json")
 
 SENT_RE = re.compile(r"[^.!?\n]+[.!?]*")
-WORD_RE = re.compile(r"[A-Za-z']+")
-CONTRACTIONS = re.compile(r"\b\w+'(?:s|t|re|ve|ll|d|m)\b", re.IGNORECASE)
-PRONOUNS = re.compile(r"\b(i|me|my|mine|we|us|our|you|your)\b", re.IGNORECASE)
+WORD_RE = re.compile(r"[A-Za-zÀ-ÿ']+")
+CONTRACTIONS = re.compile(r"\b\w+'(?:s|t|re|ve|ll|d|m)\b"
+                          # português falado: tá, pra, pro, né, tô, cê, vc, num, dum, tava
+                          r"|\b(?:tá|tô|pra|pro|pros|pras|né|cê|vc|vcs|num|numa|dum|duma|tava|tão|tamo)\b",
+                          re.IGNORECASE)
+PRONOUNS = re.compile(r"\b(i|me|my|mine|we|us|our|you|your"
+                      r"|eu|meu|minha|meus|minhas|comigo|nós|nosso|nossa|a gente"
+                      r"|você|vocês|vc|te|teu|tua|seu|sua|contigo)\b", re.IGNORECASE)
 NUMBERS = re.compile(r"\b\d[\d,.]*%?\b|\$\d")
-PROPER = re.compile(r"(?<![.!?]\s)(?<!^)\b[A-Z][a-z]{2,}\b", re.MULTILINE)
+PROPER = re.compile(r"(?<![.!?]\s)(?<!^)\b[A-ZÀ-Ý][a-zà-ÿ]{2,}\b", re.MULTILINE)
 
 
 def clamp(n):
