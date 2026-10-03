@@ -1,0 +1,4 @@
+faster-whisper
+rembg
+onnxruntime
+pillow
